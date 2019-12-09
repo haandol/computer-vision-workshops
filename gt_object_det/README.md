@@ -1,1 +1,1 @@
-# ML-groundtruth-workshop
+# Object Detection with AWS: A Demo with Boots and Cats
