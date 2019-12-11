@@ -1,32 +1,37 @@
 """Train YOLOv3 with random shapes."""
+
+# TODO: This is a training script only, implement model save, model_fn, predict_fn
+
+# Built-Ins:
 import argparse
-import os
+import json
 import logging
+import os
+import subprocess
 import time
 import warnings
-import numpy as np
-from subprocess import call
-call('pip install --upgrade gluoncv',shell=True)
 
-import json
+# Install/Update GluonCV:
+subprocess.call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'gluoncv'])
+
+# External Dependencies:
+import gluoncv as gcv
+from gluoncv import data as gdata
+from gluoncv import utils as gutils
+from gluoncv.data.batchify import Tuple, Stack, Pad
+from gluoncv.data.dataloader import RandomTransformDataLoader
+from gluoncv.data.transforms.presets.yolo import YOLO3DefaultTrainTransform
+from gluoncv.data.transforms.presets.yolo import YOLO3DefaultValTransform
+from gluoncv.model_zoo import get_model
+from gluoncv.utils.metrics.coco_detection import COCODetectionMetric
+from gluoncv.utils import LRScheduler, LRSequential
+from hello import VOC07MApMetric
 import mxnet as mx
 from mxnet import nd
 from mxnet import gluon
 from mxnet import autograd
-import gluoncv as gcv
-from gluoncv import data as gdata
-from gluoncv import utils as gutils
-from gluoncv.model_zoo import get_model
-from gluoncv.data.batchify import Tuple, Stack, Pad
-from gluoncv.data.transforms.presets.yolo import YOLO3DefaultTrainTransform
-from gluoncv.data.transforms.presets.yolo import YOLO3DefaultValTransform
-from gluoncv.data.dataloader import RandomTransformDataLoader
-#from gluoncv.utils.metrics.voc_detection import VOC07MApMetric
-from hello import VOC07MApMetric
-from gluoncv.utils.metrics.coco_detection import COCODetectionMetric
-from gluoncv.utils import LRScheduler, LRSequential
+import numpy as np
 
-from matplotlib import pyplot as plt
     
 def parse_args():
     parser = argparse.ArgumentParser(description='Train YOLO networks with random input shape.')
@@ -112,7 +117,7 @@ class GroundTruthDataset(gluon.data.Dataset):
     """
     Custom Dataset to handle the GroundTruth json file
     """
-    def __init__(self, data_path,channel,image_path, field_name):
+    def __init__(self, data_path, channel, image_path, field_name):
         """
         Parameters
         ---------
@@ -145,7 +150,12 @@ class GroundTruthDataset(gluon.data.Dataset):
         label: np.NDArray bounding box labels of the form [[x1,y1, x2, y2, class], ...]
         """
         info = self.image_info[idx]
-        image = mx.image.imread(os.path.join(self.image_path,info['source-ref'].split('/')[-1]))
+        source_ref = (
+            info['source-ref'][5:].partition('/')[2]
+            if (info['source-ref'][:5] == 's3://')
+            else info['source-ref']
+        )
+        image = mx.image.imread(os.path.join(self.image_path,*source_ref.split('/')))
         boxes = info[self.field_name]['annotations']
         label = []
         for box in boxes:
@@ -160,12 +170,8 @@ class GroundTruthDataset(gluon.data.Dataset):
 def get_dataset(args): 
     print(os.listdir('/opt/ml/input/data/'))
     print(os.listdir('/opt/ml/input/data/train/'))
-    #print(os.listdir('/opt/ml/input/data/train/'))
-    #print(os.listdir('/opt/ml/input/data/train-manifest/'))
-    #train_dataset = gcv.data.RecordFileDetection(os.path.join('/opt/ml/input/data','train_0'))
-    #val_dataset = gcv.data.RecordFileDetection(os.path.join('/opt/ml/input/test','test_0'))
-    train_dataset = GroundTruthDataset(args.train,'train',args.images,"label-job-test")
-    val_dataset = GroundTruthDataset(args.test,'validation',args.images,"label-job-test")
+    train_dataset = GroundTruthDataset(args.train,'train',args.images,"labels")
+    val_dataset = GroundTruthDataset(args.test,'validation',args.images,"labels")
     
     val_metric = VOC07MApMetric(iou_thresh=0.5)
     
