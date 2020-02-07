@@ -7,11 +7,16 @@ import shutil
 import subprocess
 import sys
 
-# OpenCV requires some OS-level dependencies not in the standard container:
-subprocess.call(["apt-get", "update"])
-subprocess.call(["apt-get", "-y", "install", "libglib2.0", "libsm6", "libxext6", "libxrender-dev"])
-subprocess.call([sys.executable, "-m", "pip", "install", "opencv-python"])
-# (or `opencv-contrib-python` if contrib modules required)
+# OpenCV requires some OS-level dependencies not in the standard container.
+# For this example comparing the built-in container to a custom one, we'll use the same script file
+# in both containers and set an environment variable to indicate which one we're in:
+if not os.environ.get("OPENCV_PREINSTALLED"):
+    subprocess.call(["apt-get", "update"])
+    subprocess.call(["apt-get", "-y", "install", "libglib2.0", "libsm6", "libxext6", "libxrender-dev"])
+    subprocess.call([sys.executable, "-m", "pip", "install", "opencv-python"])
+    # (or `opencv-contrib-python` if contrib modules required)
+else:
+    print("Skipping OpenCV install due to OPENCV_PREINSTALLED env var")
 
 # External Dependencies:
 import cv2
@@ -53,7 +58,7 @@ def extract_frames(src, dest, fps=0):
             print(f"Skipping non-video file {filename}")
             continue
         vidid = filename.rpartition(".")[0]
-        vidcap = cv2.VideoCapture(f"{src}/{filename}")#f"data/raw/train_sample_videos/{vidid}.mp4")
+        vidcap = cv2.VideoCapture(f"{src}/{filename}")
         vidfps = vidcap.get(cv2.cv.CV_CAP_PROP_FPS if int(cv_major_ver) < 3 else cv2.CAP_PROP_FPS)
         try:
             shutil.rmtree(f"{dest}/{vidid}")
@@ -81,5 +86,6 @@ def extract_frames(src, dest, fps=0):
 if __name__ == "__main__":
     args = parse_args()
     print(args)
+    print(os.environ)
     os.makedirs(args.output, exist_ok=True)
     extract_frames(args.input, args.output, fps=args.frames_per_second)
