@@ -177,22 +177,17 @@ def get_dataloader(net, dataset, data_shape, batch_size, validation:bool, args):
             num_workers=args.num_workers
         )
     else:
-        # TODO: Undo temporarily disabled random transforms
-        # Stack images, all targets generated:
-        #batchify_fn = Tuple(*([Stack() for _ in range(6)] + [Pad(axis=0, pad_val=-1) for _ in range(1)]))
-        batchify_fn = Tuple(Stack(), Pad(pad_val=-1))
-        if True:
-        #if args.no_random_shape:
+        if args.no_random_shape:
             logger.debug("Creating DataLoader without random transform")
-#             return gluon.data.DataLoader(
-#                 dataset.transform(YOLO3DefaultTrainTransform(width, height, net, mixup=args.mixup)),
-#                 batch_size, True, batchify_fn=batchify_fn, last_batch="discard", num_workers=args.num_workers
-#             )
+            batchify_fn = Tuple(Stack(), Pad(pad_val=-1))
             return gluon.data.DataLoader(
-                dataset, batch_size=batch_size, num_workers=args.num_workers
+                dataset.transform(YOLO3DefaultTrainTransform(width, height, net, mixup=args.mixup)),
+                batch_size, shuffle=True, batchify_fn=batchify_fn, last_batch="discard", num_workers=args.num_workers
             )
         else:
             logger.debug("Creating DataLoader with random transform")
+            # Stack images, all targets generated:
+            batchify_fn = Tuple(*([Stack() for _ in range(6)] + [Pad(axis=0, pad_val=-1) for _ in range(1)]))
             transform_fns = [YOLO3DefaultTrainTransform(x * 32, x * 32, net, mixup=args.mixup) for x in range(10, 20)]
             return RandomTransformDataLoader(
                 transform_fns, dataset, batch_size=batch_size, interval=10, last_batch="discard",
@@ -360,25 +355,30 @@ def pipe_detection_minibatch(
                             ann["top"] + ann["height"]
                         ] for ann in image_meta["annotations"]]
                     
+                    boxes_flat = [ val for box in boxes for val in box ]
+                    header_data = [2, 5] + boxes_flat
+                    logger.debug(f"Annotation header data {header_data}")
                     header = mx.recordio.IRHeader(
                         0, # Convenience value not used
                         # Flatten nested boxes array:
-                        [ val for box in boxes for val in box],
+                        header_data,
                         ixdatum,
                         0
                     )
-                    batch_records.write(mx.recordio.pack(header, image_raw))
+                    batch_records.write_idx(ixdatum, mx.recordio.pack(header, image_raw))
                     image_raw = None
                     image_meta = None
                     ixdatum += 1
             
+            # Close the write stream (we'll re-open the file-pair to read):
+            batch_records.close()
+
             if (epoch_end and discard_partial_final):
                 logger.debug("Discarding final partial batch")
                 break # (Don't yield the part-completed batch)
-            
+
             dataset = gcv.data.RecordFileDetection(batch_records_file)
             logger.debug(f"Stream batch ready with {len(dataset)} records")
-            batch_records.close()
             if not len(dataset):
                 raise ValueError(
                     "Why is the dataset empty after loading as RecordFileDetection!?!?"
