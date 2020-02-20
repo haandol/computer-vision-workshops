@@ -308,8 +308,8 @@ def train(net, train_data, val_data, eval_metric, ctx, args):
         if not (epoch + 1) % args.val_interval:
             map_name, mean_ap = validate(net, val_data, ctx, eval_metric)
             val_msg = '\n'.join(['{}={}'.format(k, v) for k, v in zip(map_name, mean_ap)])
-            logger.info('[Epoch {}] Validation mAP: {} ;'.format(epoch, meap_ap))
-            logger.info('[Epoch {}] Validation: {}'.format(epoch, meap_val_msg))
+            logger.info('[Epoch {}] Validation mAP: {} ;'.format(epoch, mean_ap))
+            logger.info('[Epoch {}] Validation: {}'.format(epoch, val_msg))
             current_map = float(mean_ap[-1])
         else:
             current_map = 0.
