@@ -11,7 +11,8 @@ import warnings
 import subprocess
 
 # Install/Update GluonCV:
-subprocess.call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'gluoncv'])
+subprocess.call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'Cython'])
+subprocess.call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'gluoncv', 'pycocotools'])
 
 # External Dependencies:
 import numpy as np
