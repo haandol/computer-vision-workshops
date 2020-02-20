@@ -92,9 +92,7 @@ class COCODetection(VisionDataset):
         abs_path : str
             Absolute path for corresponding image.
         """
-        filename = entry['coco_url'].rsplit('/', 1)[1]
-        abs_path = os.path.join(self.image_path, filename)
-        return abs_path
+        return entry['coco_url']
 
     def __len__(self):
         return len(self._items)

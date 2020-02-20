@@ -16,11 +16,11 @@ def convert_gt_to_coco(data_path, channel, image_path, field_name, output='coco.
             info = json.loads(line.strip())
             labels = info[field_name]
 
-            image_filename = info['source-ref'].rsplit('/', 1)[1]
-            image_id = image_filename.split('.')[0]
+            image_filepath = info['source-ref'][5:].partition('/')[2]
+            image_id = image_filepath.rsplit('/', 1)[1].split('.')[0]
 
             image = {
-                'coco_url': os.path.join(image_path, image_filename),
+                'coco_url': os.path.join(image_path, image_filepath),
                 'height': labels['image_size'][0]['height'],
                 'width': labels['image_size'][0]['width'],
                 'id': image_id,
