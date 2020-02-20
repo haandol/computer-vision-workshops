@@ -12,12 +12,14 @@ def convert_gt_to_coco(data_path, channel, image_path, field_name, output='coco.
     }
     with open(os.path.join(data_path, f'{channel}.manifest')) as fp:
         anno_id = 0
+        image_id = 0
         for line in fp.readlines():
             info = json.loads(line.strip())
             labels = info[field_name]
 
             image_filepath = info['source-ref'][5:].partition('/')[2]
-            image_id = image_filepath.rsplit('/', 1)[1].split('.')[0]
+            # image_id = image_filepath.rsplit('/', 1)[1].split('.')[0]
+            image_id += 1
 
             image = {
                 'coco_url': os.path.join(image_path, image_filepath),
@@ -38,6 +40,8 @@ def convert_gt_to_coco(data_path, channel, image_path, field_name, output='coco.
                     ],
                     'image_id': image_id,
                     'id': anno_id,
+                    'iscrowd': 0,
+                    'area': int(bbox['width']) * int(bbox['height']),
                 }
                 anno_id += 1
                 D['annotations'].append(anno)
