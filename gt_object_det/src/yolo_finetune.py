@@ -290,7 +290,7 @@ def train(net, train_data, val_data, eval_metric, ctx, args):
                 name2, loss2 = center_metrics.get()
                 name3, loss3 = scale_metrics.get()
                 name4, loss4 = cls_metrics.get()
-                logger.info('[Epoch {}][Batch {}], LR: {:.2E}, Speed: {:.3f} samples/sec, {}={:3.f}, {}={:.3f}, {}={:.3f}, {}={:.3f}, {}={:.3f}'.format(
+                logger.info('[Epoch {}][Batch {}], LR: {:.2E}, Speed: {:.3f} samples/sec, {}={:.3f}, {}={:.3f}, {}={:.3f}, {}={:.3f}, {}={:.3f}'.format(
                     epoch, i, trainer.learning_rate, batch_size/(time.time()-btic),
                     name0, loss0, name1, loss1, name2, loss2, name3, loss3, name4, loss4
                 ))
