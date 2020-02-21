@@ -3,6 +3,7 @@ import json
 
 
 def convert_gt_to_coco(data_path, channel, image_path, field_name, output='coco.json'):
+    '''Convert AWS Ground Truth annotations to COCO annotation format'''
     D = {
         'images': [],
         'annotations': [],
@@ -10,15 +11,14 @@ def convert_gt_to_coco(data_path, channel, image_path, field_name, output='coco.
             {'id': 0, 'name': 'person'}
         ],
     }
+    anno_id = 0
+    image_id = 0
     with open(os.path.join(data_path, f'{channel}.manifest')) as fp:
-        anno_id = 0
-        image_id = 0
         for line in fp.readlines():
             info = json.loads(line.strip())
             labels = info[field_name]
 
             image_filepath = info['source-ref'][5:].partition('/')[2]
-            # image_id = image_filepath.rsplit('/', 1)[1].split('.')[0]
             image_id += 1
 
             image = {
@@ -52,9 +52,10 @@ def convert_gt_to_coco(data_path, channel, image_path, field_name, output='coco.
 
 if __name__ == '__main__':
     from pycocotools.coco import COCO
-
     data_path = './'
+    image_path = './'
     channel = 'train'
     output = 'output.json'
-    convert_gt_to_coco(data_path, channel, output)
+    field_name = 'labels'
+    convert_gt_to_coco(data_path, channel, image_path, field_name, output)
     coco = COCO(os.path.join(data_path, output))
