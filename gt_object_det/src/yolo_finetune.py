@@ -181,9 +181,9 @@ def get_dataloader(net, train_dataset, val_dataset, data_shape, batch_size, num_
 def save_params(net, best_loss, current_loss, epoch, save_interval, model_dir):
     CHECKPOINTS_DIR = '/opt/ml/checkpoints'
     
-    if current_loss < best_loss:
-        logger.info(f'checkpoint save current loss: {current_loss:2.6f}, previous best loss: {best_loss:2.6f}')
-        best_loss = current_loss
+    if current_loss < best_loss[0]:
+        logger.info(f'checkpoint save current loss: {current_loss:2.6f}, previous best loss: {best_loss[0]:2.6f}')
+        best_loss[0] = current_loss
         net.save_parameters(os.path.join(CHECKPOINTS_DIR, f'{current_loss:2.6f}.params'))
     
     if epoch % save_interval == 0:
@@ -254,7 +254,7 @@ def train(net, train_data, val_data, eval_metric, ctx, args):
 
     # set up logger
     logger.info('Start training')
-    best_loss = float('inf')
+    best_loss = [float('inf')]
     for epoch in range(args.start_epoch, args.epochs):
         tic = time.time()
         btic = time.time()
