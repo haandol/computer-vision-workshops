@@ -37,6 +37,7 @@ logger.setLevel(logging.DEBUG)
 
 
 def parse_args():
+    hps = json.loads(os.environ["SM_HPS"])
     parser = argparse.ArgumentParser(description='Finetune YOLO networks with random input shape.')
     parser.add_argument('--network', type=str, default='yolo3_darknet53_coco',
                         help='Base network name which serves as feature extraction base.')
@@ -51,9 +52,6 @@ def parse_args():
                         help='Number of GPUs to use in training.')
     parser.add_argument('--epochs', type=int, default=1,
                         help='Training epochs.')
-    parser.add_argument('--resume', type=str, default='',
-                        help='Resume from previously saved parameters if not None. '
-                        'For example, you can resume from ./yolo3_xxx_0123.params')
     parser.add_argument('--start-epoch', type=int, default=0,
                         help='Starting epoch for resuming, default is 0 for new training.'
                         'You can specify it to 100 for example to start from 100 epoch.')
@@ -69,13 +67,14 @@ def parse_args():
                         help='Logging mini-batch interval. Default is 40.')
     parser.add_argument('--save-prefix', type=str, default='',
                         help='Saving parameter prefix')
-    parser.add_argument('--save-interval', type=int, default=10,
-                        help='Saving parameters epoch interval, best model will always be saved.')
     parser.add_argument('--val-interval', type=int, default=1,
                         help='Epoch interval for validation, increase the number will reduce the '
                              'training time if validation is slow.')
     parser.add_argument('--seed', type=int, default=233,
                         help='Random seed to be fixed.')
+    parser.add_argument('--save-interval', type=int, default=hps.get('save-interval', 10),
+        help="Saving parameters epoch interval, best model will always be saved."
+    )
 
     # Data, model, and output directories
     parser.add_argument('--output-data-dir', type=str, default=os.environ['SM_OUTPUT_DATA_DIR'])
@@ -83,7 +82,6 @@ def parse_args():
     parser.add_argument('--train', type=str, default=os.environ['SM_CHANNEL_TRAIN'])
     parser.add_argument('--validation', type=str, default=os.environ['SM_CHANNEL_VALIDATION'])
     parser.add_argument('--images', type=str, default=os.environ['SM_CHANNEL_IMAGES'])
-    parser.add_argument('--label-smooth', action='store_true', help='Use label smoothing.')
     args = parser.parse_args()
     return args
 
@@ -180,15 +178,19 @@ def get_dataloader(net, train_dataset, val_dataset, data_shape, batch_size, num_
     return train_loader, val_loader
 
 
-def save_params(net, best_map, current_map, epoch, save_interval, prefix):
-    current_map = float(current_map)
-    if current_map > best_map[0]:
-        best_map[0] = current_map
-        net.save_parameters('{:s}_best.params'.format(prefix, epoch, current_map))
-        with open(prefix+'_best_map.log', 'a') as f:
-            f.write('{:04d}:\t{:.4f}\n'.format(epoch, current_map))
-    if save_interval and epoch % save_interval == 0:
-        net.save_parameters('{:s}_{:04d}_{:.4f}.params'.format(prefix, epoch, current_map))
+def save_params(net, best_loss, current_loss, epoch, save_interval, model_dir):
+    CHECKPOINTS_DIR = '/opt/ml/checkpoints'
+    
+    if current_loss > best_loss:
+        best_loss = current_loss
+        net.save_parameters(os.path.join(CHECKPOINTS_DIR, f'{current_loss:2.3f}.params'))
+    
+    if epoch % save_interval == 0:
+        import shutil
+        from glob import glob
+        checkpoint = sorted(globl(os.path.join(CHECKPOINTS_DIR, '*.params')))[0]
+        logger.info(f'Copy checkpoint {checkpoint} to {model_dir}')
+        shutil.copyfile(checkpoint, os.path.join(model_dir, 'model.params'))
 
 
 def validate(net, val_data, ctx, eval_metric):
@@ -251,7 +253,7 @@ def train(net, train_data, val_data, eval_metric, ctx, args):
 
     # set up logger
     logger.info('Start training')
-    best_map = [0]
+    best_loss = 0.0
     for epoch in range(args.start_epoch, args.epochs):
         tic = time.time()
         btic = time.time()
@@ -303,18 +305,15 @@ def train(net, train_data, val_data, eval_metric, ctx, args):
         name4, loss4 = cls_metrics.get()
         logger.info('[Epoch {}] Train Loss: {} ;'.format(epoch, loss0))
         logger.info('[Epoch {}] Train Cost: {:.3f}, {}={:.3f}, {}={:.3f}, {}={:.3f}, {}={:.3f}'.format(
-            epoch, (time.time()-tic),name1, loss1, name2, loss2, name3, loss3, name4, loss4
+            epoch, (time.time()-tic), name1, loss1, name2, loss2, name3, loss3, name4, loss4
         ))
 
         if not (epoch + 1) % args.val_interval:
             map_name, mean_ap = validate(net, val_data, ctx, eval_metric)
             val_msg = '\n'.join(['{}={}'.format(k, v) for k, v in zip(map_name, mean_ap)])
-            logger.info('[Epoch {}] Validation mAP: {} ;'.format(epoch, mean_ap))
             logger.info('[Epoch {}] Validation: {}'.format(epoch, val_msg))
-            current_map = float(mean_ap[-1])
-        else:
-            current_map = 0.
-        save_params(net, best_map, current_map, epoch, args.save_interval, args.save_prefix)
+        
+        save_params(net, best_loss, float(loss0), epoch, args.save_interval, args.model_dir)
 
 
 if __name__ == '__main__':
@@ -334,9 +333,6 @@ if __name__ == '__main__':
     net = get_model(net_name, pretrained=True)
     net.reset_class(classes=['person'], reuse_weights=['person'])
 
-    if args.resume.strip():
-        net.load_parameters(args.resume.strip())
-
     # training data
     train_dataset, val_dataset, eval_metric = get_dataset(args)
     train_data, val_data = get_dataloader(
@@ -346,4 +342,3 @@ if __name__ == '__main__':
 
     # training
     train(net, train_data, val_data, eval_metric, ctx, args)
-
