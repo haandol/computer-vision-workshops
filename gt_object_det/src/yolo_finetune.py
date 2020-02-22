@@ -72,7 +72,7 @@ def parse_args():
                              'training time if validation is slow.')
     parser.add_argument('--seed', type=int, default=233,
                         help='Random seed to be fixed.')
-    parser.add_argument('--save-interval', type=int, default=hps.get('save-interval', 10),
+    parser.add_argument('--save-interval', type=int, default=hps.get('save-interval', 5),
         help="Saving parameters epoch interval, best model will always be saved."
     )
 
@@ -188,7 +188,7 @@ def save_params(net, best_loss, current_loss, epoch, save_interval, model_dir):
     if epoch % save_interval == 0:
         import shutil
         from glob import glob
-        checkpoint = sorted(globl(os.path.join(CHECKPOINTS_DIR, '*.params')))[0]
+        checkpoint = sorted(glob(os.path.join(CHECKPOINTS_DIR, '*.params')))[0]
         logger.info(f'Copy checkpoint {checkpoint} to {model_dir}')
         shutil.copyfile(checkpoint, os.path.join(model_dir, 'model.params'))
 
