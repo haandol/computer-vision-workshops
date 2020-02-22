@@ -72,7 +72,7 @@ def parse_args():
                              'training time if validation is slow.')
     parser.add_argument('--seed', type=int, default=233,
                         help='Random seed to be fixed.')
-    parser.add_argument('--save-interval', type=int, default=hps.get('save-interval', 5),
+    parser.add_argument('--save-interval', type=int, default=hps.get('save-interval', 10),
         help="Saving parameters epoch interval, best model will always be saved."
     )
 
@@ -181,9 +181,10 @@ def get_dataloader(net, train_dataset, val_dataset, data_shape, batch_size, num_
 def save_params(net, best_loss, current_loss, epoch, save_interval, model_dir):
     CHECKPOINTS_DIR = '/opt/ml/checkpoints'
     
-    if current_loss > best_loss:
+    if current_loss < best_loss:
+        logger.info(f'checkpoint save current loss: {current_loss:2.6f}, previous best loss: {best_loss:2.6f}')
         best_loss = current_loss
-        net.save_parameters(os.path.join(CHECKPOINTS_DIR, f'{current_loss:2.3f}.params'))
+        net.save_parameters(os.path.join(CHECKPOINTS_DIR, f'{current_loss:2.6f}.params'))
     
     if epoch % save_interval == 0:
         import shutil
@@ -253,7 +254,7 @@ def train(net, train_data, val_data, eval_metric, ctx, args):
 
     # set up logger
     logger.info('Start training')
-    best_loss = 0.0
+    best_loss = float('inf')
     for epoch in range(args.start_epoch, args.epochs):
         tic = time.time()
         btic = time.time()
@@ -308,10 +309,10 @@ def train(net, train_data, val_data, eval_metric, ctx, args):
             epoch, (time.time()-tic), name1, loss1, name2, loss2, name3, loss3, name4, loss4
         ))
 
-        if not (epoch + 1) % args.val_interval:
-            map_name, mean_ap = validate(net, val_data, ctx, eval_metric)
-            val_msg = '\n'.join(['{}={}'.format(k, v) for k, v in zip(map_name, mean_ap)])
-            logger.info('[Epoch {}] Validation: {}'.format(epoch, val_msg))
+#         if not (epoch + 1) % args.val_interval:
+#             map_name, mean_ap = validate(net, val_data, ctx, eval_metric)
+#             val_msg = '\n'.join(['{}={}'.format(k, v) for k, v in zip(map_name, mean_ap)])
+#             logger.info('[Epoch {}] Validation: {}'.format(epoch, val_msg))
         
         save_params(net, best_loss, float(loss0), epoch, args.save_interval, args.model_dir)
 
