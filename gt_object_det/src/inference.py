@@ -16,6 +16,13 @@ import mxnet as mx
 import gluoncv as gcv
 
 
+class NDArrayEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, mx.nd.NDArray):
+            return obj.asnumpy().tolist()
+        return json.JSONEncoder.default(self, obj)
+
+
 def model_fn(model_dir):
     ctx = mx.cpu()
     classes = ['person']
@@ -52,9 +59,9 @@ def output_fn(prediction, content_type):
     cid, score, bbox = prediction
     if content_type == 'application/json':
         return json.dumps({
-            'cid': cid.asnumpy().tolist(),
-            'score': score.asnumpy().tolist(),
-            'bbox': bbox.asnumpy().tolist()
-        })
+            'cid': cid,
+            'bbox': bbox,
+            'score': score
+        }, cls=NDArrayEncoder)
     else:
         raise RuntimeError(f'Not support content-type: {content_type}')
