@@ -179,19 +179,10 @@ def get_dataloader(net, train_dataset, val_dataset, data_shape, batch_size, num_
 
 
 def save_params(net, best_loss, current_loss, epoch, save_interval, model_dir):
-    CHECKPOINTS_DIR = '/opt/ml/checkpoints'
-    
     if current_loss < best_loss[0]:
-        logger.info(f'checkpoint save current loss: {current_loss:2.6f}, previous best loss: {best_loss[0]:2.6f}')
+        logger.info(f'save model with current loss: {current_loss:2.6f}, previous best loss: {best_loss[0]:2.6f}')
         best_loss[0] = current_loss
-        net.save_parameters(os.path.join(CHECKPOINTS_DIR, f'{current_loss:2.6f}.params'))
-    
-    if epoch % save_interval == 0:
-        import shutil
-        from glob import glob
-        checkpoint = sorted(glob(os.path.join(CHECKPOINTS_DIR, '*.params')))[0]
-        logger.info(f'Copy checkpoint {checkpoint} to {model_dir}')
-        shutil.copyfile(checkpoint, os.path.join(model_dir, 'model.params'))
+        net.save_parameters(os.path.join(model_dir, f'model.params'))
 
 
 def validate(net, val_data, ctx, eval_metric):
